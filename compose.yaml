@@ -1,0 +1,56 @@
+name: smart-energy
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: energy
+      POSTGRES_PASSWORD: energy_local
+      POSTGRES_DB: energy
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U energy -d energy"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  api:
+    build: .
+    command: sh -c "npm run db:migrate && npm run db:seed && npm run dev:api"
+    environment:
+      DATABASE_URL: postgres://energy:energy_local@db:5432/energy
+      UPLOAD_DIR: /app/uploads
+      HOST: 0.0.0.0
+      PORT: 3001
+      WEB_ORIGIN: http://localhost:5173
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - photo-data:/app/uploads
+      - ./apps/api/src:/app/apps/api/src
+      - ./packages/contracts/src:/app/packages/contracts/src
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  web:
+    build: .
+    command: npm run dev:web -- --host 0.0.0.0
+    environment:
+      API_PROXY_TARGET: http://api:3001
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./packages/contracts/src:/app/packages/contracts/src
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  postgres-data:
+  photo-data:
