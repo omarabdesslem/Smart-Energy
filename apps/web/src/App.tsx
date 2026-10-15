@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, CircleHelp, Grid2X2, LoaderCircle, Maximize2, Minus, MoveUpRight, Pencil, Plus, Printer, RotateCcw, Save, Sun, Undo2 } from 'lucide-react';
-import { designSummary, initialDesign, roofColors, roofSlotCount, type Design, type RoofColor } from '@energy/contracts/design';
+import { designSummary, initialDesign, roofColors, roofSlotCount, type Design, type RoofColor } from '@energy/contracts';
 import { api } from './api';
 import { Modal } from './ui';
 import { RoofScene } from './HouseScene';

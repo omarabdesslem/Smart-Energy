@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { roofColors, roofColumns, roofRows, roofSlotCount, type RoofColor } from '@energy/contracts/design';
+import { roofColors, roofColumns, roofRows, roofSlotCount, type RoofColor } from '@energy/contracts';
 
 export const houseTarget = new THREE.Vector3(0, 3.2, 0);
 export const houseCamera = new THREE.Vector3(14, 14, 20).sub(houseTarget).multiplyScalar(1.1).add(houseTarget);

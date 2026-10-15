@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { roofColors, roofColumns, roofRows, roofSlotCount, type RoofColor } from '@energy/contracts/design';
+import { roofColors, roofColumns, roofRows, roofSlotCount, type RoofColor } from '@energy/contracts';
 import { cameraViews, createHouseModel, houseCamera, houseTarget, type HouseView } from './house-model';
 
 type ProjectedTile = { points: string; center: [number, number]; visible: boolean };

@@ -10,6 +10,7 @@ import sharp from 'sharp';
 import type { PoolClient } from 'pg';
 import { checklistInput, findingInput, inspectionInput, reviewInput, siteInput, type InspectionDetail } from '@energy/contracts';
 import { pool, editable, transaction, ApiError, inspectionSelect, findingSelect } from './db.js';
+import { registerDesignRoutes } from './design.js';
 
 const uuid = z.string().uuid();
 const actor = 'Local reviewer';
@@ -85,7 +86,7 @@ export async function buildApp(options: { logger?: boolean; uploadDir?: string }
   app.post('/api/inspections', async (request, reply) => {
     const data = inspectionInput.parse(request.body), id = randomUUID();
     await transaction(async client => {
-      await client.query('INSERT INTO inspections(id,site_id,title,notes) VALUES($1,$2,$3,$4)', [id, data.site_id, data.title, data.notes]);
+      await client.query('INSERT INTO inspections(id,site_id,title,notes,assigned_to) VALUES($1,$2,$3,$4,$5)', [id, data.site_id, data.title, data.notes, data.assigned_to]);
       await audit(client, id, 'Created inspection');
     });
     return reply.code(201).send(await inspectionDetail(id));
@@ -199,5 +200,6 @@ export async function buildApp(options: { logger?: boolean; uploadDir?: string }
     reply.header('Content-Disposition', `attachment; filename="inspection-${detail.id}.csv"`);
     return reply.type('text/csv; charset=utf-8').send('\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n'));
   });
+  registerDesignRoutes(app);
   return app;
 }
