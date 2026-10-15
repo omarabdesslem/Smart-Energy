@@ -40,7 +40,7 @@ services:
       retries: 20
   web:
     build: .
-    command: npm run dev:web -- --host 0.0.0.0
+    command: npm run dev -w @energy/web -- --host 0.0.0.0
     environment:
       API_PROXY_TARGET: http://api:3001
     ports:
@@ -51,6 +51,19 @@ services:
     depends_on:
       api:
         condition: service_healthy
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.56.1-noble
+    profiles: [test]
+    working_dir: /app
+    command: sh -c "npm ci && npm run test:e2e"
+    environment:
+      BASE_URL: http://web:5173
+    volumes:
+      - .:/app
+      - e2e-modules:/app/node_modules
+    depends_on:
+      - web
 volumes:
   postgres-data:
   photo-data:
+  e2e-modules:

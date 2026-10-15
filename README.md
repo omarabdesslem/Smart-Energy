@@ -1,137 +1,86 @@
-# Solar inspection portal — project proposal
+# Design & Propose
 
-## Purpose and scope
+A minimal black-and-white React prototype inspired by Reonic's solar design workflow. Orbit a real 3D house, click a roof section to add or remove a solar panel, and turn the layout into a professional printable proposal.
 
-Build a React frontend and TypeScript backend for an energy company's solar panel inspection workflow. Staff upload photos, review findings, and record inspection decisions.
+## Run
 
-This proposal covers application development only. Model training, image inference infrastructure, drone integration, and thermal analysis are outside the delivery scope. An adapter allows a future computer vision service to supply findings. Until connected, sample findings are explicitly marked as demo data; the application does not claim to detect defects.
+With Docker Desktop running:
 
-Assumptions: one company, multiple solar sites, staff users, JPEG/PNG uploads, and manual association of photos with sites and optional panel identifiers. Confirm image volumes and existing company authentication before production sizing.
-
-## User workflow
-
-1. Sign in and select a solar site.
-2. Create an inspection with its date, description, and optional panel references.
-3. Upload photos and view processing status.
-4. Review photo overlays and finding details. Findings may be entered manually, supplied by an integrated service, or shown in an explicitly labeled demo mode.
-5. Accept, reject, or correct a finding; assign review priority and add notes.
-6. Complete the inspection and export a CSV report.
-
-## Frontend
-
-Use React, TypeScript, and Vite, with React Router for navigation and TanStack Query for API data. Keep the design responsive for desktop review and tablet use in the field.
-
-| Screen | Main behavior |
-| --- | --- |
-| Dashboard | Inspection counts, pending reviews, recent activity |
-| Sites | Site list and site inspection history |
-| New inspection | Metadata form, photo upload, progress and retry |
-| Inspection workspace | Photo gallery, zoomable photo viewer, normalized bounding-box overlays |
-| Finding review | Suggested label, model score when available, review decision, priority and notes |
-| Reports | Filter completed inspections and download CSV |
-
-Handle loading, empty, failed-upload, processing, and unavailable-analysis states. Photo overlays must stay aligned when zooming or resizing. Expose findings through an accessible list as well as overlays.
-
-## Backend
-
-Use Node.js and TypeScript with Fastify, PostgreSQL, and Prisma. Use private S3-compatible object storage for photos and an existing OIDC identity provider for staff sign-in. Local development can use PostgreSQL and MinIO in Docker Compose with a development-only identity stub.
-
-Keep one API application with modules for sites, inspections, uploads, findings, and reporting. A separate worker is deferred until a real asynchronous analysis provider requires it.
-
-```mermaid
-flowchart LR
-    Staff[Staff member] --> UI[React + TypeScript]
-    UI --> API[TypeScript API]
-    API --> DB[(PostgreSQL)]
-    API --> Storage[(Private photo storage)]
-    UI -->|Temporary upload URL| Storage
-    API --> Adapter[Analysis provider interface]
-    Adapter --> Demo[Labeled demo provider]
-    Adapter -. Future integration .-> CV[External computer vision service]
+```sh
+docker compose up --build -d
 ```
 
-The backend authorizes uploads, issues short-lived upload URLs, verifies uploaded objects, and stores photo metadata. Clients upload directly to object storage. S3 supports scoped uploads using presigned URLs: [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html).
+Open **http://localhost:5173**. No host Node.js installation is required. PostgreSQL and the API start automatically; migrations preserve existing records. Services bind only to the local machine.
 
-Enforce access checks on every inspection, photo, and finding request. Validate file type using file contents, impose configurable byte and decoded-pixel limits, and generate unique server-controlled object keys. Keep original photos private and authorize temporary download URLs.
+```sh
+docker compose stop       # Stop without deleting data
+docker compose up -d     # Start again
+docker compose logs -f api web
+```
 
-## Data model
+## Try it
 
-| Entity | Key fields |
-| --- | --- |
-| User | ID, external identity subject, name, role |
-| Site | ID, name, location |
-| Inspection | ID, site ID, creator ID, date, status, notes |
-| Photo | ID, inspection ID, object key, dimensions, upload status, optional panel reference |
-| AnalysisRun | ID, photo ID, provider, model version, status, external job ID, error |
-| Finding | ID, photo ID, optional run ID, label, normalized bounding box, optional model score, source |
-| Review | ID, finding ID, reviewer ID, decision, corrected label, priority, notes, timestamp |
+1. Click any of the 30 roof sections to add or remove a panel. The example starts with 12 panels until you save a different layout.
+2. Drag to rotate the perspective camera; scroll or use the zoom controls to zoom. Choose **3D**, **Roof**, or **Front** for preset views. **Fit house to view** restores the default perspective. Use **Undo panel change** or **Remove all panels** to edit the layout. Keyboard users can rotate the focused viewer with arrow keys and toggle a focused roof section with Enter or Space.
+3. Choose a 450 W or 475 W module. Capacity, illustrative annual generation, and estimated price update immediately.
+4. Edit the project and customer details with the pencil button.
+5. Select **Save design** to persist the layout in PostgreSQL. A reload restores the saved configuration. Stale saves from another tab are rejected instead of overwriting newer work.
+6. Select **Generate proposal**. This saves any unsaved changes and creates a proposal containing the roof layout, customer details, module count, capacity, and itemized estimate. Use **Print / Save PDF** to export through the browser.
 
-Preserve suggested findings separately from human reviews. Sources are `manual`, `demo`, or `model`. Model score and maintenance priority are separate fields. A photo without findings means “no findings recorded,” not confirmation that the panel is defect-free.
+## Interactive 3D house
 
-## API outline
+The house, roof, windows, frames, gutters, and solar modules are real Three.js geometry, viewed through a perspective camera. Orbit controls rotate around the house without changing the saved solar layout. Panels and selectable outlines share the same 3D roof coordinates, so their position follows the roof at every angle.
 
-| Method and route | Purpose |
-| --- | --- |
-| `GET /api/sites` | List sites |
-| `POST /api/sites` | Create a site, manager role |
-| `GET /api/inspections` | Filter and paginate inspections |
-| `POST /api/inspections` | Create an inspection |
-| `GET /api/inspections/:id` | Read inspection details |
-| `PATCH /api/inspections/:id` | Update metadata or complete an inspection |
-| `POST /api/inspections/:id/uploads` | Register a photo and request an upload URL |
-| `POST /api/photos/:id/complete-upload` | Verify upload completion |
-| `GET /api/photos/:id` | Read photo metadata, authorized image URL, and findings |
-| `POST /api/photos/:id/findings` | Add a manual finding |
-| `POST /api/photos/:id/analysis` | Request configured provider analysis |
-| `GET /api/analysis-runs/:id` | Read analysis status |
-| `POST /api/findings/:id/reviews` | Record a human review |
-| `GET /api/inspections/:id/report.csv` | Export an authorized inspection report |
+The designer uses WebGL with lighting and shadows. If the browser cannot create a WebGL context, it shows a clearly labeled fixed-perspective house image with editable roof sections instead. The proposal captures the same 3D model as a print-safe image, so the exported document keeps correct surface visibility and panel placement. The fixed-view fallback is also printable. There are no new image assets or external 3D model downloads. The original single house image is used only for the fixed-view fallback.
 
-Validate requests and responses with shared schemas. Analysis requests accept idempotency keys. Use explicit `queued`, `processing`, `completed`, and `failed` run states, with bounded polling in the UI. Keep live integration credentials on the backend.
+This is a conceptual house model, not photogrammetry or a measured survey. Roof dimensions and panel slots are illustrative.
 
-## Computer vision integration boundary
+## Stack
 
-Define an `AnalysisProvider` interface with `submit(photo)` and `getStatus(jobId)`. Results include photo ID, model version, findings, labels, bounding boxes, and optional scores. Validate provider responses before storing them and retain the run identity to prevent duplicate findings.
-
-For development, the demo provider returns deterministic fixtures only for bundled sample photos. Arbitrary uploaded photos remain available for manual review and show “Automated analysis not connected.” Never generate invented detections for user uploads.
-
-The application's initial finding vocabulary can include visible damage, soiling, and discoloration, subject to company review. Future thermal findings need a distinct image modality and provider capability. Inspection techniques expose different evidence; the interface must identify the image modality rather than implying ordinary photos establish electrical health. Reference: [NREL operation and maintenance guidance](https://www.nrel.gov/docs/fy19osti/73822.pdf).
-
-## Suggested repository
+- React 19, TypeScript, Vite, TanStack Query, and Three.js.
+- Fastify API, PostgreSQL 17, parameterized SQL, and versioned migrations.
+- Shared Zod schemas, panel settings, and proposal calculations.
+- Node API integration tests and Playwright browser tests.
 
 ```text
-apps/
-  web/                 React application
-  api/                 TypeScript API and provider adapters
-packages/
-  contracts/           Shared request, response, and validation schemas
-prisma/                Database schema and migrations
-fixtures/              Licensed sample images and demo findings
-docs/                  API and local setup notes
-compose.yaml           Local PostgreSQL and object storage
+apps/web/src/App.tsx          Designer screen and proposal document
+apps/web/src/HouseScene.tsx   Perspective camera, orbit controls, projected roof targets
+apps/web/src/house-model.ts  House geometry, roof coordinates, and solar modules
+apps/web/src/design.css       Monochrome responsive layout and print styles
+apps/api/src/design.ts        Layout API and concurrent-edit protection
+packages/contracts/src/      Shared schemas, types, and estimate calculations
+database/003_pv_designs.sql   Additive layout-storage migration
+tests/workflow.spec.ts        Browser workflow and mobile checks
 ```
 
-## Delivery plan
+The local workspace stores one shared design. The previous inspection backend and its data remain intact, but the visible interface has been replaced by Design & Propose.
 
-1. Foundation: repository setup, shared schemas, database, navigation, local identity, and sample sites.
-2. Inspection workflow: create inspections, upload and retrieve photos, handle failures, and persist metadata.
-3. Review workspace: photo overlays, manual findings, demo adapter, review decisions, and audit history.
-4. Delivery: dashboard, CSV export, authorization checks, deployment configuration, and setup documentation.
+## Checks
 
-Indicative effort: 3–5 developer weeks for one experienced full-stack developer, assuming a single-company workflow, straightforward identity integration, and no live model integration. This is a planning estimate; company requirements and the hosting environment can change it.
+With the app running:
 
-## Acceptance criteria
+```sh
+docker compose exec api npm run build
+docker compose exec -e TEST_DATABASE_URL=postgres://energy:energy_local@db:5432/energy api npm test
+docker compose --profile test run --rm e2e
+```
 
-- Staff can create an inspection, upload photos, and reopen persisted results.
-- Invalid uploads fail clearly, and interrupted uploads can be retried.
-- Findings and overlays remain aligned across image sizes and zoom levels.
-- Demo results are visibly labeled and limited to sample photos.
-- Manual review works without an analysis service.
-- Review decisions retain reviewer identity and timestamps.
-- Unauthorized requests cannot access photos, inspections, or exports.
-- CSV exports match the stored review decisions and distinguish demo data.
-- API tests cover permissions, upload verification, state transitions, and provider failure handling. One end-to-end test covers creation through review and export.
+API tests use an isolated temporary PostgreSQL schema. Browser tests temporarily edit the local design, then restore its previous configuration if no concurrent user save has occurred. Screenshots and traces are written to the ignored `test-results/` directory. The optional browser image is downloaded on its first run.
 
-## Decisions to settle before implementation
+For host development, use Node.js 22.12+, run `npm ci`, start the database with `docker compose up -d db`, and source `.env.example` into your shell. Run `npm run db:migrate`, then `npm run dev:api` and `npm run dev:web` in separate terminals. The backend does not automatically read `.env` files.
 
-Confirm company branding, identity provider, hosting environment, expected photo volume, image retention requirements, and whether the first release needs a real external analysis provider. None is needed to begin a local prototype with sample data.
+## Netlify frontend build
+
+The root `netlify.toml` builds the npm workspaces from the repository root with Node.js 22 and publishes `apps/web/dist`. It also includes the React single-page-app rewrite. These settings follow Netlify's [monorepo guidance](https://docs.netlify.com/build/configure-builds/monorepos/).
+
+The shared contracts package has one entry point: `@energy/contracts`, exported from `packages/contracts/src/index.ts`. It includes the inspection and solar-design schemas, types, and calculations. Web, API, and test imports all use this entry point; there are no contracts subpath imports or separate generated files. Vite and the API's `tsx` runtime compile the TypeScript source directly.
+
+Include `packages/contracts/package.json`, `packages/contracts/src/index.ts`, the updated imports in `apps/` and `tests/`, and `netlify.toml` in the deployed commit, together with the root lockfile. Deploying only the web changes leaves the shared package out of sync. After pushing the complete change, use Netlify's **Clear cache and deploy site** option if the previous resolver failure persists.
+
+This configuration builds the frontend only. Netlify does not run the Docker PostgreSQL/Fastify services, and the Vite development proxy is not part of the static build. Saved designs and proposal generation still require a separately hosted API and an `/api` proxy to it. The local API retains its production-mode guard.
+
+## Prototype boundaries
+
+This independent concept has no Reonic integration or user sign-in. The API refuses `NODE_ENV=production` until authentication and project authorization are implemented.
+
+Proposal prices and generation figures are explicitly illustrative. Assumptions are 950 kWh/kWp/year; €175 per 450 W module or €195 per 475 W module; €1,500 inverter; and €2,000 installation plus €70 per module, excluding VAT. This is not a roof suitability assessment, shade simulation, or binding installation quote.

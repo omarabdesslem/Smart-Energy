@@ -1,7 +1,67 @@
+# Dependencies and package-manager caches
 node_modules/
+.npm/
+.pnpm-store/
+
+# Build output and tool caches (including workspace packages)
 dist/
-.env
-.DS_Store
-uploads/
-coverage/
+build/
+.vite/
+.cache/
+.turbo/
 *.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+# Environment files and local credentials; keep safe templates
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+.aws/
+*.pem
+*.key
+
+# Runtime uploads, local databases, and backups
+uploads/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+/backups/
+
+# Test output
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
+# Local hosting state (keep netlify.toml and other deployment config)
+.netlify/
+.vercel/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor and operating-system files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.tmp
+*.bak
+.DS_Store
+._*
+.AppleDouble/
+Thumbs.db
+Desktop.ini

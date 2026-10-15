@@ -8,10 +8,11 @@
     "dev:api": "npm run dev -w @energy/api",
     "db:migrate": "npm run db:migrate -w @energy/api",
     "db:seed": "npm run db:seed -w @energy/api",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present",
     "build": "npm run typecheck && npm run build -w @energy/web",
-    "test": "npm run test -w @energy/api"
+    "test": "npm run test -w @energy/api",
+    "test:e2e": "playwright test"
   },
   "engines": { "node": ">=22.12" },
-  "devDependencies": { "typescript": "~5.9.3", "@types/node": "^22.0.0" }
+  "devDependencies": { "typescript": "~5.9.3", "@types/node": "^22.0.0", "@playwright/test": "1.56.1" }
 }
