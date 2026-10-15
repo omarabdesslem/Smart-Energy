@@ -18,11 +18,18 @@ test.afterAll(async ({ request }) => {
   }
 });
 
+test('HTML served at the API route produces a clear deployment error', async ({ page }) => {
+  await page.route('**/api/design', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body>SPA fallback</body></html>' }));
+  await page.goto('/');
+  await expect(page.getByRole('alert')).toContainText('The API returned a webpage instead of JSON');
+  await expect(page.getByRole('alert')).not.toContainText('The string did not match');
+});
+
 test('new designs start with eight lower-center panels and advance only through Generate proposal', async ({ page }) => {
   // Keep this fresh-workspace check independent of the saved user design.
   await page.route('**/api/design', async route => {
     const request = route.request();
-    await route.fulfill({ json: request.method() === 'GET' ? null : { ...request.postDataJSON(), revision: 1, updatedAt: new Date().toISOString() } });
+    await route.fulfill({ contentType: 'application/json', json: request.method() === 'GET' ? null : { ...request.postDataJSON(), revision: 1, updatedAt: new Date().toISOString() } });
   });
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Generate proposal', exact: true })).toBeEnabled();

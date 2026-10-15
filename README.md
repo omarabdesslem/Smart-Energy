@@ -20,7 +20,7 @@ docker compose logs -f api web
 
 ## Try it
 
-1. Click any of the 30 roof sections to add or remove a panel. The example starts with 12 panels until you save a different layout.
+1. Click any of the 30 roof sections to add or remove a panel. The example starts with eight panels centered on the lower roof until you save a different layout.
 2. Drag to rotate the perspective camera; scroll or use the zoom controls to zoom. Choose **3D**, **Roof**, or **Front** for preset views. **Fit house to view** restores the default perspective. Use **Undo panel change** or **Remove all panels** to edit the layout. Keyboard users can rotate the focused viewer with arrow keys and toggle a focused roof section with Enter or Space.
 3. Choose a 450 W or 475 W module. Capacity, illustrative annual generation, and estimated price update immediately.
 4. Edit the project and customer details with the pencil button.
@@ -77,7 +77,13 @@ The shared contracts package has one entry point: `@energy/contracts`, exported 
 
 Include `packages/contracts/package.json`, `packages/contracts/src/index.ts`, the updated imports in `apps/` and `tests/`, and `netlify.toml` in the deployed commit, together with the root lockfile. Deploying only the web changes leaves the shared package out of sync. After pushing the complete change, use Netlify's **Clear cache and deploy site** option if the previous resolver failure persists.
 
-This configuration builds the frontend only. Netlify does not run the Docker PostgreSQL/Fastify services, and the Vite development proxy is not part of the static build. Saved designs and proposal generation still require a separately hosted API and an `/api` proxy to it. The local API retains its production-mode guard.
+Netlify builds with `VITE_DESIGN_STORAGE=browser`. The public prototype loads its initial eight-panel layout without an API, saves designs in localStorage, and generates printable proposals directly in the browser. Saved designs belong to the current browser and device; clearing site data removes them. The interface labels these saves as **Saved in this browser**. No customer design data is sent to a backend in this mode.
+
+Local Docker development keeps using Fastify and PostgreSQL because browser storage is opt-in. To connect a deployed build to a separately hosted API later, set `VITE_DESIGN_STORAGE=api` and configure an `/api` proxy before the SPA fallback. Netlify does not run the Docker services or Vite development proxy. The API client reports a clear routing error if it receives HTML instead of JSON; it never silently switches a configured API deployment to browser storage. The local API retains its production-mode guard.
+
+To check the Netlify mode locally, build with `VITE_DESIGN_STORAGE=browser npm run build`, then run `npm exec -w @energy/web -- vite preview --host 127.0.0.1 --port 4173`.
+
+With Playwright browsers installed, run `npm exec -- playwright test --config=playwright.static.config.ts` against that preview to check Chromium and WebKit. These static-hosting checks use isolated browser storage and make no requests to the API.
 
 ## Prototype boundaries
 

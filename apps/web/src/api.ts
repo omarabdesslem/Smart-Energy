@@ -2,11 +2,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, { ...init, headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers } });
+  if (!response.headers.get('content-type')?.toLowerCase().includes('json')) {
+    throw new Error('The API returned a webpage instead of JSON. Check the deployment’s API routing or enable browser storage for this prototype.');
+  }
   if (!response.ok) {
     const error = await response.json().catch(() => null);
     throw new Error(error?.message || `Request failed (${response.status}).`);
   }
-  return response.json();
+  try { return await response.json(); }
+  catch { throw new Error('The API returned invalid JSON. Please try again or check the API deployment.'); }
 }
 export function useAction<T = void, TResult = unknown>(action: (variables: T) => Promise<TResult>) {
   const cache = useQueryClient();
