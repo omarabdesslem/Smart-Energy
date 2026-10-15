@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { roofColumns, roofRows, roofSlotCount } from '@energy/contracts/design';
+import { roofColors, roofColumns, roofRows, roofSlotCount, type RoofColor } from '@energy/contracts/design';
 
 export const houseTarget = new THREE.Vector3(0, 3.2, 0);
-export const houseCamera = new THREE.Vector3(14, 14, 20);
+export const houseCamera = new THREE.Vector3(14, 14, 20).sub(houseTarget).multiplyScalar(1.1).add(houseTarget);
 export type HouseView = 'perspective' | 'roof' | 'front';
 export const cameraViews: Record<HouseView, THREE.Vector3> = {
   perspective: houseCamera.clone().sub(houseTarget),
@@ -144,5 +144,6 @@ export function createHouseModel(interactive: boolean) {
     geometries.forEach(geometry => geometry.dispose()); materials.forEach(mat => mat.dispose());
     key.shadow.map?.dispose();
   }
-  return { scene, ground, tiles, updatePanels, dispose };
+  function updateRoofColor(color: RoofColor) { roof.color.set(roofColors[color].hex); }
+  return { scene, ground, tiles, updatePanels, updateRoofColor, dispose };
 }

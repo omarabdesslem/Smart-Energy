@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { roofColumns, roofRows, roofSlotCount } from '@energy/contracts/design';
+import { roofColors, roofColumns, roofRows, roofSlotCount, type RoofColor } from '@energy/contracts/design';
 import { cameraViews, createHouseModel, houseCamera, houseTarget, type HouseView } from './house-model';
 
 type ProjectedTile = { points: string; center: [number, number]; visible: boolean };
-type Runtime = { update: (panels: number[]) => void; zoomTo: (zoom: number) => void; view: (preset: HouseView) => void; rotate: (theta: number, phi?: number) => void };
-type Props = { panels: number[]; onToggle?: (slot: number) => void; zoom?: number; onZoomChange?: (zoom: number) => void; disabled?: boolean; resetKey?: number; onModeChange?: (mode: '3d' | 'fixed') => void };
+type Runtime = { update: (panels: number[]) => void; updateRoofColor: (color: RoofColor) => void; zoomTo: (zoom: number) => void; view: (preset: HouseView) => void; rotate: (theta: number, phi?: number) => void };
+type Props = { panels: number[]; roofColor?: RoofColor; onToggle?: (slot: number) => void; zoom?: number; onZoomChange?: (zoom: number) => void; disabled?: boolean; resetKey?: number; onModeChange?: (mode: '3d' | 'fixed') => void };
 
-export function RoofScene({ panels, onToggle, zoom = 1, onZoomChange, disabled = false, resetKey = 0, onModeChange }: Props) {
+export function RoofScene({ panels, roofColor = 'dark-grey', onToggle, zoom = 1, onZoomChange, disabled = false, resetKey = 0, onModeChange }: Props) {
   const viewport = useRef<HTMLDivElement>(null), host = useRef<HTMLDivElement>(null), runtime = useRef<Runtime | null>(null);
-  const props = useRef({ panels, onToggle, onZoomChange, zoom, disabled, onModeChange });
-  props.current = { panels, onToggle, onZoomChange, zoom, disabled, onModeChange };
+  const props = useRef({ panels, roofColor, onToggle, onZoomChange, zoom, disabled, onModeChange });
+  props.current = { panels, roofColor, onToggle, onZoomChange, zoom, disabled, onModeChange };
   const [projected, setProjected] = useState<ProjectedTile[]>([]), [preset, setPreset] = useState<HouseView>('perspective');
   const [rendererKind, setRendererKind] = useState('loading');
   const [printSnapshot, setPrintSnapshot] = useState<string | null>(null);
@@ -73,9 +73,10 @@ export function RoofScene({ panels, onToggle, zoom = 1, onZoomChange, disabled =
     }
     controls.addEventListener('change', requestRender);
     const observer = new ResizeObserver(updateSize); observer.observe(element);
-    model.updatePanels(props.current.panels); controls.update(); updateSize();
+    model.updatePanels(props.current.panels); model.updateRoofColor(props.current.roofColor); controls.update(); updateSize();
     runtime.current = {
       update(next) { model.updatePanels(next); requestRender(); },
+      updateRoofColor(next) { model.updateRoofColor(next); requestRender(); },
       zoomTo(next) {
         const distance = homeDistance / next;
         if (Math.abs(camera.position.distanceTo(controls.target) - distance) < .01) return;
@@ -100,13 +101,14 @@ export function RoofScene({ panels, onToggle, zoom = 1, onZoomChange, disabled =
   }, [interactive]);
 
   useEffect(() => runtime.current?.update(panels), [panels]);
+  useEffect(() => runtime.current?.updateRoofColor(roofColor), [roofColor]);
   useEffect(() => runtime.current?.zoomTo(zoom), [zoom]);
   useEffect(() => { if (resetKey) { runtime.current?.view('perspective'); setPreset('perspective'); } }, [resetKey]);
   function changeView(view: HouseView) { setPreset(view); runtime.current?.view(view); }
 
-  if (rendererKind === 'fixed') return <FixedRoofView panels={panels} onToggle={onToggle} zoom={zoom} disabled={disabled}/>;
+  if (rendererKind === 'fixed') return <FixedRoofView panels={panels} roofColor={roofColor} onToggle={onToggle} zoom={zoom} disabled={disabled}/>;
 
-  return <div className={`house-viewport true-3d ${interactive ? 'interactive' : ''} ${printSnapshot ? 'has-print-snapshot' : ''}`} data-renderer={rendererKind}>
+  return <div className={`house-viewport true-3d ${interactive ? 'interactive' : ''} ${printSnapshot ? 'has-print-snapshot' : ''}`} data-renderer={rendererKind} data-roof-color={roofColor}>
     <div ref={viewport} className="scene-interaction" tabIndex={interactive ? 0 : undefined} role="group" aria-label={interactive ? 'Interactive 3D house. Drag to rotate, scroll to zoom, or use arrow keys.' : 'Three-dimensional house with the proposed solar layout'}
       onKeyDown={e => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); runtime.current?.rotate(e.key === 'ArrowLeft' ? -.15 : e.key === 'ArrowRight' ? .15 : 0, e.key === 'ArrowUp' ? -.1 : e.key === 'ArrowDown' ? .1 : 0); } }}
       onPointerDownCapture={e => {
@@ -131,14 +133,15 @@ export function RoofScene({ panels, onToggle, zoom = 1, onZoomChange, disabled =
 
 // The earlier single-image planner remains a reliable, explicitly labeled
 // fallback when the browser cannot create a WebGL context.
-function FixedRoofView({ panels, onToggle, zoom, disabled }: Props) {
+function FixedRoofView({ panels, roofColor = 'dark-grey', onToggle, zoom, disabled }: Props) {
   const point = (u: number, v: number): [number, number] => {
     const a = [382, 94], b = [1231, 169], c = [1078, 505], d = [153, 380];
     return [(1 - v) * ((1 - u) * a[0] + u * b[0]) + v * ((1 - u) * d[0] + u * c[0]), (1 - v) * ((1 - u) * a[1] + u * b[1]) + v * ((1 - u) * d[1] + u * c[1])];
   };
   const path = (points: [number, number][]) => points.map(p => p.join(',')).join(' ');
-  return <div className="house-viewport true-3d fixed-roof-view" data-renderer="fixed"><span className="fixed-view-caption">3D unavailable · Fixed roof view</span><svg className="fixed-house-scene" viewBox="0 0 1536 1024" style={{ transform: `scale(${zoom || 1})` }} role="group" aria-label="Fixed house roof planner">
+  return <div className="house-viewport true-3d fixed-roof-view" data-renderer="fixed" data-roof-color={roofColor}><span className="fixed-view-caption">3D unavailable · Fixed roof view</span><svg className="fixed-house-scene" viewBox="0 0 1536 1024" style={{ transform: `scale(${(zoom || 1) / 1.1})` }} role="group" aria-label="Fixed house roof planner">
     <image href="/images/house-3d.png" width="1536" height="1024" role="img" aria-label="House roof in a fixed perspective"/>
+    {roofColor !== 'dark-grey' && <polygon className="fixed-roof-tint" points="363,76 1255,155 1095,526 132,390" fill={roofColors[roofColor].hex} opacity=".75" style={{ mixBlendMode: 'color', pointerEvents: 'none' }}/>}
     {Array.from({ length: roofSlotCount }, (_, slot) => {
       const row = Math.floor(slot / roofColumns), col = slot % roofColumns, selected = panels.includes(slot);
       if (!selected && !onToggle) return null;
